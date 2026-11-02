@@ -1,13 +1,14 @@
 # Tetris
-Android tetris  
+Android tetris   
+Windows tetris    
 
 
-![ic](ic.png)     
+<img src="ic.png" style="width: 40px;">  
+
+<img src="recording.gif" style="width: 199px;">  
 
 
-
-
-![recording](recording.gif)    
+<img src="recording2.gif" style="width: 800px;">    
 
 
 

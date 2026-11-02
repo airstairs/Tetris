@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Tetris3D</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --accent-green: #00e676;
+      --accent-pink: #ff4081;
+      --accent-blue: #00e5ff;
+      --accent-yellow: #ffea00;
+      --text-color: #ffffff;
+      --subtext-color: #aaaaaa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #canvas-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    /* UI Overlay */
+    #ui-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+    }
+
+    .header-hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 100%;
+      pointer-events: auto;
+    }
+
+    .hud-card {
+      background: rgba(30, 30, 30, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .hud-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--subtext-color);
+    }
+
+    .hud-value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent-green);
+    }
+
+    .pause-icon-btn {
+      background: rgba(30, 30, 30, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--accent-yellow);
+      font-size: 1.2rem;
+      font-weight: bold;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: background 0.1s, transform 0.1s;
+    }
+
+    .pause-icon-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(0.95);
+    }
+
+    /* Modal Overlays */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 32px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 360px;
+      width: 85%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
+
+    .modal-title {
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--accent-pink);
+      margin-bottom: 8px;
+    }
+
+    .controls-list {
+      text-align: left;
+      margin: 16px 0;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .control-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+      color: var(--subtext-color);
+    }
+
+    .control-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .key-badge {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--accent-blue);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    .action-btn {
+      margin-top: 12px;
+      background: var(--accent-green);
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 800;
+      border-radius: 25px;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: 0 4px 15px rgba(0, 230, 118, 0.4);
+    }
+
+    .secondary-btn {
+      background: transparent;
+      color: var(--text-color);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <div id="ui-overlay">
+    <div class="header-hud">
+      <div class="hud-card">
+        <div class="hud-title">Score</div>
+        <div class="hud-value" id="score-val">0</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-title">Lines</div>
+        <div class="hud-value" id="lines-val" style="color: var(--accent-blue);">0</div>
+      </div>
+      <button class="pause-icon-btn" id="btn-pause-header">⏸</button>
+    </div>
+  </div>
+
+  <!-- Start / Instructions Modal -->
+  <div id="start-modal" class="modal-overlay visible">
+    <div class="modal-card">
+      <div class="modal-title" style="color: var(--accent-blue);">TETRIS 3D</div>
+      <p style="color: var(--subtext-color); font-size: 0.9rem;">Controls Guide</p>
+
+      <div class="controls-list">
+        <div class="control-item">
+          <span>Move Left / Right</span>
+          <span class="key-badge">A / D or ← / →</span>
+        </div>
+        <div class="control-item">
+          <span>Soft Drop</span>
+          <span class="key-badge">S or ↓</span>
+        </div>
+        <div class="control-item">
+          <span>Spin Right</span>
+          <span class="key-badge">Space / W / ↑</span>
+        </div>
+        <div class="control-item">
+          <span>Spin Left</span>
+          <span class="key-badge">Shift + Space</span>
+        </div>
+        <div class="control-item">
+          <span>Pause / Resume</span>
+          <span class="key-badge">P or Esc</span>
+        </div>
+      </div>
+
+      <button class="action-btn" id="start-btn">START GAME</button>
+    </div>
+  </div>
+
+  <!-- Pause Modal -->
+  <div id="pause-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-title" style="color: var(--accent-yellow);">PAUSED</div>
+      <p style="color: var(--subtext-color); margin-bottom: 20px;">Game is currently paused</p>
+      <button class="action-btn" id="resume-btn">RESUME</button>
+      <button class="action-btn secondary-btn" id="pause-restart-btn">RESTART</button>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="game-over-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-title">GAME OVER</div>
+      <p style="color: var(--subtext-color); margin-bottom: 12px;">Field standard filled</p>
+      <div class="hud-title">Final Score</div>
+      <div class="hud-value" id="final-score" style="font-size: 2rem; margin-bottom: 16px;">0</div>
+      <button class="action-btn" id="restart-btn">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <script src="three.min.js"></script>
+
+  <script>
+    const BOARD_WIDTH = 10;
+    const BOARD_HEIGHT = 20;
+
+    const SHAPES = [
+      { shape: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], color: 0x00e5ff },
+      { shape: [[1,0,0],[1,1,1],[0,0,0]], color: 0x00e676 },
+      { shape: [[0,0,1],[1,1,1],[0,0,0]], color: 0xffea00 },
+      { shape: [[1,1],[1,1]], color: 0xff4081 },
+      { shape: [[0,1,1],[1,1,0],[0,0,0]], color: 0x00e676 },
+      { shape: [[0,1,0],[1,1,1],[0,0,0]], color: 0x00e5ff },
+      { shape: [[1,1,0],[0,1,1],[0,0,0]], color: 0xff4081 }
+    ];
+
+    // --- THREE.JS SETUP ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x121212);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    // --- LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 40, 20);
+    scene.add(dirLight);
+
+    const pointLight = new THREE.PointLight(0x00e5ff, 0.5, 50);
+    pointLight.position.set(0, 0, 10);
+    scene.add(pointLight);
+
+    // --- GAME GRID & BOUNDS ---
+    let grid = Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(null));
+
+    const frameGroup = new THREE.Group();
+    const borderGeo = new THREE.BoxGeometry(0.1, BOARD_HEIGHT, 0.1);
+    const borderMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+    
+    const leftBorder = new THREE.Mesh(borderGeo, borderMat);
+    leftBorder.position.set(-0.55, BOARD_HEIGHT / 2 - 0.5, 0);
+    const rightBorder = new THREE.Mesh(borderGeo, borderMat);
+    rightBorder.position.set(BOARD_WIDTH - 0.45, BOARD_HEIGHT / 2 - 0.5, 0);
+    
+    const bottomGeo = new THREE.BoxGeometry(BOARD_WIDTH + 0.2, 0.1, 0.1);
+    const bottomBorder = new THREE.Mesh(bottomGeo, borderMat);
+    bottomBorder.position.set(BOARD_WIDTH / 2 - 0.5, -0.55, 0);
+
+    frameGroup.add(leftBorder, rightBorder, bottomBorder);
+    
+    const gridHelper = new THREE.GridHelper(BOARD_WIDTH, BOARD_WIDTH, 0x333333, 0x222222);
+    gridHelper.rotation.x = Math.PI / 2;
+    gridHelper.position.set(BOARD_WIDTH / 2 - 0.5, BOARD_HEIGHT / 2 - 0.5, -0.5);
+    frameGroup.add(gridHelper);
+
+    scene.add(frameGroup);
+
+    camera.position.set(BOARD_WIDTH / 2 - 0.5, BOARD_HEIGHT / 2 - 2, 25);
+    camera.lookAt(BOARD_WIDTH / 2 - 0.5, BOARD_HEIGHT / 2 - 2, 0);
+
+    // --- GAME STATE ---
+    let currentPiece = null;
+    let score = 0;
+    let linesCleared = 0;
+    let dropCounter = 0;
+    let dropInterval = 1000;
+    let lastTime = 0;
+    let isGameOver = false;
+    let isPaused = true;
+    let gameStarted = false;
+
+    const blockGeometry = new THREE.BoxGeometry(0.92, 0.92, 0.92);
+
+    class Piece {
+      constructor(type) {
+        this.shape = type.shape;
+        this.color = type.color;
+        this.x = Math.floor(BOARD_WIDTH / 2) - Math.ceil(this.shape[0].length / 2);
+        this.y = BOARD_HEIGHT - this.shape.length;
+        this.meshGroup = new THREE.Group();
+
+        this.material = new THREE.MeshStandardMaterial({
+          color: this.color,
+          roughness: 0.3,
+          metalness: 0.2,
+          emissive: this.color,
+          emissiveIntensity: 0.15
+        });
+
+        this.updateMesh();
+        scene.add(this.meshGroup);
+      }
+
+      updateMesh() {
+        while(this.meshGroup.children.length > 0){ 
+          this.meshGroup.remove(this.meshGroup.children[0]); 
+        }
+
+        for (let r = 0; r < this.shape.length; r++) {
+          for (let c = 0; c < this.shape[r].length; c++) {
+            if (this.shape[r][c]) {
+              const mesh = new THREE.Mesh(blockGeometry, this.material);
+              mesh.position.set(this.x + c, this.y - r, 0);
+              this.meshGroup.add(mesh);
+            }
+          }
+        }
+      }
+
+      move(dx, dy) {
+        this.x += dx;
+        this.y += dy;
+        if (checkCollision(this)) {
+          this.x -= dx;
+          this.y -= dy;
+          return false;
+        }
+        this.updateMesh();
+        return true;
+      }
+
+      rotate(direction = 1) { // 1 = right (clockwise), -1 = left (counter-clockwise)
+        const prevShape = this.shape;
+        const rows = this.shape.length;
+        const cols = this.shape[0].length;
+        
+        let newShape = Array(cols).fill(null).map(() => Array(rows).fill(0));
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (direction === 1) {
+              // Clockwise rotation (Right)
+              newShape[c][rows - 1 - r] = this.shape[r][c];
+            } else {
+              // Counter-clockwise rotation (Left)
+              newShape[cols - 1 - c][r] = this.shape[r][c];
+            }
+          }
+        }
+
+        this.shape = newShape;
+
+        if (checkCollision(this)) {
+          if (!this.move(1, 0) && !this.move(-1, 0)) {
+            this.shape = prevShape;
+          }
+        }
+        this.updateMesh();
+      }
+    }
+
+    function checkCollision(piece) {
+      for (let r = 0; r < piece.shape.length; r++) {
+        for (let c = 0; c < piece.shape[r].length; c++) {
+          if (piece.shape[r][c]) {
+            let targetX = piece.x + c;
+            let targetY = piece.y - r;
+
+            if (targetX < 0 || targetX >= BOARD_WIDTH || targetY < 0) {
+              return true;
+            }
+            if (targetY < BOARD_HEIGHT && grid[targetY][targetX] !== null) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function spawnPiece() {
+      const randomType = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      currentPiece = new Piece(randomType);
+
+      if (checkCollision(currentPiece)) {
+        triggerGameOver();
+      }
+    }
+
+    function lockPiece() {
+      for (let r = 0; r < currentPiece.shape.length; r++) {
+        for (let c = 0; c < currentPiece.shape[r].length; c++) {
+          if (currentPiece.shape[r][c]) {
+            let targetX = currentPiece.x + c;
+            let targetY = currentPiece.y - r;
+
+            if (targetY >= 0 && targetY < BOARD_HEIGHT) {
+              const mesh = new THREE.Mesh(blockGeometry, currentPiece.material);
+              mesh.position.set(targetX, targetY, 0);
+              scene.add(mesh);
+              grid[targetY][targetX] = mesh;
+            }
+          }
+        }
+      }
+
+      scene.remove(currentPiece.meshGroup);
+      clearLines();
+      spawnPiece();
+    }
+
+    function clearLines() {
+      let linesClearedThisTurn = 0;
+
+      for (let y = 0; y < BOARD_HEIGHT; y++) {
+        let isFull = true;
+        for (let x = 0; x < BOARD_WIDTH; x++) {
+          if (grid[y][x] === null) {
+            isFull = false;
+            break;
+          }
+        }
+
+        if (isFull) {
+          linesClearedThisTurn++;
+          for (let x = 0; x < BOARD_WIDTH; x++) {
+            scene.remove(grid[y][x]);
+            grid[y][x] = null;
+          }
+
+          for (let ny = y; ny < BOARD_HEIGHT - 1; ny++) {
+            for (let x = 0; x < BOARD_WIDTH; x++) {
+              grid[ny][x] = grid[ny + 1][x];
+              if (grid[ny][x]) {
+                grid[ny][x].position.y = ny;
+              }
+              grid[ny + 1][x] = null;
+            }
+          }
+          y--;
+        }
+      }
+
+      if (linesClearedThisTurn > 0) {
+        linesCleared += linesClearedThisTurn;
+        score += linesClearedThisTurn * 100 * linesClearedThisTurn;
+        dropInterval = Math.max(100, 1000 - (linesCleared * 25));
+
+        document.getElementById('score-val').innerText = score;
+        document.getElementById('lines-val').innerText = linesCleared;
+      }
+    }
+
+    function triggerGameOver() {
+      isGameOver = true;
+      document.getElementById('final-score').innerText = score;
+      document.getElementById('game-over-modal').classList.add('visible');
+    }
+
+    function togglePause() {
+      if (isGameOver || !gameStarted) return;
+      isPaused = !isPaused;
+      const pauseModal = document.getElementById('pause-modal');
+      if (isPaused) {
+        pauseModal.classList.add('visible');
+      } else {
+        pauseModal.classList.remove('visible');
+      }
+    }
+
+    function startGame() {
+      gameStarted = true;
+      isPaused = false;
+      document.getElementById('start-modal').classList.remove('visible');
+      spawnPiece();
+    }
+
+    function resetGame() {
+      for (let y = 0; y < BOARD_HEIGHT; y++) {
+        for (let x = 0; x < BOARD_WIDTH; x++) {
+          if (grid[y][x]) {
+            scene.remove(grid[y][x]);
+          }
+        }
+      }
+      if (currentPiece) {
+        scene.remove(currentPiece.meshGroup);
+      }
+
+      grid = Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(null));
+      score = 0;
+      linesCleared = 0;
+      dropInterval = 1000;
+      isGameOver = false;
+      isPaused = false;
+
+      document.getElementById('score-val').innerText = '0';
+      document.getElementById('lines-val').innerText = '0';
+      document.getElementById('game-over-modal').classList.remove('visible');
+      document.getElementById('pause-modal').classList.remove('visible');
+
+      spawnPiece();
+    }
+
+    // --- INPUT HANDLING ---
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        togglePause();
+        return;
+      }
+      if (isGameOver || isPaused) return;
+
+      // Left: ArrowLeft or A / a
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        currentPiece.move(-1, 0);
+      }
+      // Right: ArrowRight or D / d
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        currentPiece.move(1, 0);
+      }
+      // Down: ArrowDown or S / s
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        if (!currentPiece.move(0, -1)) lockPiece();
+      }
+
+      // Spacebar or Shift + Spacebar handling for rotation
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          currentPiece.rotate(-1); // Spin Left
+        } else {
+          currentPiece.rotate(1);  // Spin Right
+        }
+      }
+
+      // Additional rotation keys (ArrowUp / W)
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        currentPiece.rotate(1); // Spin Right
+      }
+    });
+
+    document.getElementById('start-btn').addEventListener('click', () => startGame());
+    document.getElementById('btn-pause-header').addEventListener('click', () => togglePause());
+    document.getElementById('resume-btn').addEventListener('click', () => togglePause());
+    document.getElementById('pause-restart-btn').addEventListener('click', () => resetGame());
+    document.getElementById('restart-btn').addEventListener('click', () => resetGame());
+
+    // --- GAME LOOP ---
+    function update(time = 0) {
+      const deltaTime = time - lastTime;
+      lastTime = time;
+
+      if (!isGameOver && !isPaused && gameStarted) {
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) {
+          if (currentPiece) {
+            if (!currentPiece.move(0, -1)) {
+              lockPiece();
+            }
+          }
+          dropCounter = 0;
+        }
+      }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(update);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    update();
+  </script>
+</body>
+</html>
